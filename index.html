@@ -6,6 +6,7 @@
 <title>Dashboard Psicología · CUC_SAVIA</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     /* Paleta institucional: verde principal + secundarios (CMYK convertidos a HEX) */
@@ -139,6 +140,32 @@
     border-radius:8px;border:1px solid var(--line);
   }
 
+  /* Upload card */
+  .upload-card{
+    background:var(--card);border-radius:14px;padding:22px 24px;margin-bottom:22px;
+    box-shadow:0 3px 10px rgba(9,132,59,.07);border:2px dashed var(--line);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .upload-card.dragover{border-color:var(--navy);background:#f4faf7;}
+  .upload-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .upload-icon{
+    width:48px;height:48px;border-radius:50%;background:var(--green-bg);color:var(--navy);
+    display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  }
+  .upload-text{flex:1;min-width:220px;}
+  .upload-text .title{font-size:15px;font-weight:700;color:var(--ink);}
+  .upload-text .sub{font-size:13px;color:var(--muted);margin-top:2px;}
+  .upload-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .upload-btn{
+    background:var(--navy);color:#fff;border:none;padding:10px 20px;border-radius:10px;
+    font-size:14px;font-weight:700;cursor:pointer;transition:background .15s ease;
+  }
+  .upload-btn:hover{background:var(--navy-dark);}
+  .upload-status{font-size:13px;color:var(--muted);}
+  .upload-status.ok{color:var(--green);font-weight:600;}
+  .upload-status.error{color:var(--red);font-weight:600;}
+  #fileInput{display:none;}
+
   .footer-note{
     text-align:center;margin-top:26px;color:#8a9aa8;font-size:12.5px;
     border-top:1px solid var(--line);padding-top:18px;
@@ -162,6 +189,21 @@
     <h1>📘 Dashboard Psicología · CUC_SAVIA</h1>
     <p>Análisis de rendimiento académico — Curso específico</p>
     <span class="tag">Reporte 2</span>
+  </div>
+
+  <div class="upload-card" id="uploadCard">
+    <div class="upload-row">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">
+        <div class="title">Cargar archivo de calificaciones (.xlsx)</div>
+        <div class="sub">Arrastra el archivo aquí o selecciónalo. Se espera una hoja con columnas Nombre, Apellido(s), Dirección de correo y Total del curso.</div>
+      </div>
+      <div class="upload-actions">
+        <button class="upload-btn" id="uploadBtn" type="button">Seleccionar archivo</button>
+        <span class="upload-status" id="uploadStatus">Mostrando datos de ejemplo (Reporte 2)</span>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
   </div>
 
   <div class="kpi-grid" id="kpiContainer"></div>
@@ -229,7 +271,8 @@
   Chart.register(ChartDataLabels);
 
   // ------------------------------------------------------------------
-  // 1. DATOS (extraídos directamente del archivo .xlsx oficial)
+  // 1. DATOS DE EJEMPLO (Reporte 2) — se usan al cargar la página;
+  //    se reemplazan por completo al subir un archivo .xlsx
   // ------------------------------------------------------------------
   const rawData = [["VALENTINA", "AGUILAR HERRAN", "v_aguilar@unisimon.edu.co", 5.0], ["JUAN SEBASTIAN", "ARIAS VELASQUEZ", "j_arias18@unisimon.edu.co", 5.0], ["JERLIN MILAGROS", "BAYONA SOTO", "j_bayona4@unisimon.edu.co", 5.0], ["LIUSNEY CAROLINA", "BELTRAN ORTEGA", "l_beltran4@unisimon.edu.co", 5.0], ["ANGELICA", "BELTRAN RUEDA", "a_beltran2@unisimon.edu.co", 3.5], ["YESSICA PAOLA", "BETANCOUR BECERRA", "y_betancour@unisimon.edu.co", 5.0], ["MARCELO ANDRES", "BOTIA MARQUEZ", "m_botia1@unisimon.edu.co", 5.0], ["ISABELLA", "CALDERON JAIMES", "i_calderon1@unisimon.edu.co", 5.0], ["MARIA ALEJANDRA", "CARREÑO RIOS", "m_carreno5@unisimon.edu.co", 4.5], ["ANGIE ALEJANDRA", "CASTRO LIZARAZO", "a_castro7@unisimon.edu.co", 4.5], ["MARYURY DANIELA", "CASTRO OCHOA", "m_castro13@unisimon.edu.co", 3.5], ["ZARITH NICOOLD", "CASTRO PEREZ", "z_castro1@unisimon.edu.co", 3.5], ["DANNA MARCELA", "CLARO CLARO", "d_claro@unisimon.edu.co", 4.0], ["GABRIELA VALENTINA", "COLLANTES PABON", "g_collantes2@unisimon.edu.co", 0.0], ["ANGELY MICHELLY", "CORREA LUNA", "a_correa6@unisimon.edu.co", 5.0], ["MARIA TATIANA", "DAZA TRILLOS", "m_daza6@unisimon.edu.co", 5.0], ["STEPHANY ALEXANDRA", "DELGADO MARRERO", "s_delgado1@unisimon.edu.co", 4.0], ["MARIA JOSE", "DIAZ MORALES", "m_diaz11@unisimon.edu.co", 5.0], ["ANGELA MARIA", "DIAZ PINEDA", "a_diaz13@unisimon.edu.co", 4.0], ["MARIA ALEJANDRA", "ESCOBAR LOAIZA", "m_escobar3@unisimon.edu.co", 3.5], ["KAREN YULIANA", "FERNANDEZ GUERRERO", "k_fernandez2@unisimon.edu.co", 5.0], ["ISABEL ZHARICK", "FERNANDEZ MARTINEZ", "i_fernandez1@unisimon.edu.co", 5.0], ["LUZ STELLA", "FLOREZ MORA", "l_florez19@unisimon.edu.co", 5.0], ["MARIA JOSEFA", "FUENTES VEGA", "f_fuentes1@unisimon.edu.co", 5.0], ["MARIANGEL", "GARCIA BECERRA", "m_garcia40@unisimon.edu.co", 5.0], ["XUXA PAOLA", "GARCIA BECERRA", "x_garcia@unisimon.edu.co", 4.5], ["ANYELIS BELEN", "GAVIRIA CORZO", "a_gaviria1@unisimon.edu.co", 4.5], ["ANDREA XIMENA", "GOMEZ SALAZAR", "a_gomez26@unisimon.edu.co", 3.5], ["VALERIE GABRIELLA", "GONZALEZ BARRERA", "v_gonzalez1@unisimon.edu.co", 4.5], ["DANNA GABRIELA", "GONZALEZ BAUTISTA", "d_gonzalez23@unisimon.edu.co", 4.0], ["JOSE ALEJANDRO", "GUARIN GARCIA", "j_guarin2@unisimon.edu.co", 4.0], ["LUNA MARIANA", "GUARIN MATEUS", "l_guarin3@unisimon.edu.co", 3.5], ["VALERIE", "GUILLEN MEZA", "v_guillen@unisimon.edu.co", 4.5], ["VALERY", "GUIO ROMAN", "v_guio@unisimon.edu.co", 4.5], ["SARA DANIELA", "GUTIERREZ AVILA", "s_gutierrez4@unisimon.edu.co", 2.5], ["VALERIE ALEJANDRA", "GUTIERREZ BAYONA", "v_gutierrez1@unisimon.edu.co", 3.5], ["LUIS ALEJANDRO", "GUTIERREZ SOLER", "l_gutierrez12@unisimon.edu.co", 5.0], ["JUAN CAMILO", "HERNANDEZ MEDINA", "j_hernandez44@unisimon.edu.co", 5.0], ["LISETH CAMILA", "HERRERA CASTELLANOS", "l_herrera2@unisimon.edu.co", 4.0], ["DAISY JAILYN", "IPUZ BAUTISTA", "d_ipuz@unisimon.edu.co", 3.0], ["MARIA JOSE", "JAIMES ARAQUE", "m_jaimes36@unisimon.edu.co", 4.5], ["KINVERLY JIMENA", "JIMENEZ SANCHEZ", "k_jimenez2@unisimon.edu.co", 3.5], ["NATALIA", "JIMENEZ VILLAMIZAR", "n_jimenez2@unisimon.edu.co", 4.5], ["JOSE MANUEL", "LAZZO ANAYA", "j_lazzo@unisimon.edu.co", 0.0], ["SEBASTIAN CAMILO", "LIZARAZO AGUILAR", "s_lizarazo1@unisimon.edu.co", 5.0], ["ISLEY NATALIA", "LIZCANO MENDOZA", "i_lizcano@unisimon.edu.co", 5.0], ["KAROL VANNESA", "LUNA BRICEÑO", "k_luna1@unisimon.edu.co", 5.0], ["DANNA ZARETH", "MARTINEZ GUERRERO", "d_martinez17@unisimon.edu.co", 5.0], ["DILAN STICK", "MENDOZA GUZMAN", "d_mendoza15@unisimon.edu.co", 4.5], ["ANGELY FABIANA", "MENESES ORTIZ", "a_meneses6@unisimon.edu.co", 4.0], ["KATHERIN LORAYSNE", "MEZA APARICIO", "k_meza1@unisimon.edu.co", 4.5], ["SHAHIRA MARITZA", "MEZA GARCIA", "s_meza1@unisimon.edu.co", 4.0], ["KORIENGH VALENTHINA", "MONCADA BARRERA", "k_moncada3@unisimon.edu.co", 4.5], ["NICOLAS ANDRES", "MONTOYA GONZALEZ", "n_montoya@unisimon.edu.co", 5.0], ["MARIA CAMILA", "MORA RODRIGUEZ", "m_mora18@unisimon.edu.co", 5.0], ["SOFIA", "NAVAS GOMEZ", "s_navas2@unisimon.edu.co", 5.0], ["SHELLSY MADDELEYNE", "ORTEGA MELENDEZ", "s_ortega14@unisimon.edu.co", 4.5], ["YENDRI DANIELA", "ORTIZ DIAZ", "y_ortiz11@unisimon.edu.co", 5.0], ["CHARID DAYANA", "ORTIZ RAMIREZ", "c_ortiz11@unisimon.edu.co", 5.0], ["DANNA", "OVALLES GARCIA", "d_ovalles2@unisimon.edu.co", 4.0], ["NEILYMAR", "PAEZ NEGRIN", "n_paez3@unisimon.edu.co", 5.0], ["SANDRA JESUSA", "PARIATA YBARRA", "s_pariata@unisimon.edu.co", 4.5], ["ANDREA JACKSURY", "PEREZ BECERRA", "a_perez34@unisimon.edu.co", 5.0], ["YULIANA ANDREA", "PEREZ CARRILLO", "y_perez30@unisimon.edu.co", 5.0], ["ANGIE MARCELA", "PEREZ FLOREZ", "a_perez37@unisimon.edu.co", 5.0], ["ANDRES FELIPE", "PEREZ ROJAS", "a_perez24@unisimon.edu.co", 0.0], ["DEIRY SHARICK", "PEREZ SEPULVEDA", "d_perez16@unisimon.edu.co", 4.0], ["MELISSA PAOLA", "PEZZOTTI PEÑARANDA", "m_pezzotti@unisimon.edu.co", 5.0], ["SAMARA LUCDARY", "QUINTERO MOLINA", "s_quintero7@unisimon.edu.co", 3.0], ["JEROME ALEJANDRO", "RAMIREZ ORTIZ", "j_ramirez54@unisimon.edu.co", 4.5], ["KAREN DANIELA", "RINCON RANGEL", "k_rincon4@unisimon.edu.co", 5.0], ["JULIANA ANDREA", "RIVERA BOTELLO", "j_rivera17@unisimon.edu.co", 5.0], ["SLENDY KARITME", "RODRIGUEZ CACERES", "s_rodriguez21@unisimon.edu.co", 2.5], ["JAYANY LIZETH", "RODRIGUEZ CAMPOS", "j_rodriguez72@unisimon.edu.co", 5.0], ["STEFANI PAOLA", "RODRIGUEZ IZAQUITA", "s_rodriguez22@unisimon.edu.co", 4.0], ["ANA MARIA", "RODRIGUEZ MORENO", "a_rodriguez36@unisimon.edu.co", 4.5], ["ANDRES FELIPE", "ROJAS BALLESTEROS", "a_rojas26@unisimon.edu.co", 5.0], ["VALENTINA", "ROJAS RUIZ", "v_rojas1@unisimon.edu.co", 4.5], ["AISLIM MARITZA DEL VALLE", "ROJAS SEVILLANO", "a_rojas25@unisimon.edu.co", 5.0], ["KAROL ESTEFANY", "ROMERO ORTIZ", "k_romero4@unisimon.edu.co", 5.0], ["ANDRES FELIPE", "ROSADO FERNANDEZ", "a_rosado@unisimon.edu.co", 2.5], ["ANA KATHERINE", "SALAS SUAREZ", "a_salas@unisimon.edu.co", 4.5], ["ALIX ITZEL", "SANCHEZ CONTRERAS", "a_sanchez23@unisimon.edu.co", 4.0], ["CINTHIA MANUELA", "SANCHEZ DIAZ", "c_sanchez16@unisimon.edu.co", 4.5], ["IOSUA BEN REFAEL", "SANDOVAL PARADA", "i_sandoval1@unisimon.edu.co", 5.0], ["MARGY YULEISY", "SANTAMARIA ARDILA", "m_santamaria@unisimon.edu.co", 4.0], ["MARLEEN FABIANA", "SANTIAGO DURAN", "m_santiago2@unisimon.edu.co", 5.0], ["YERLI ANDREA", "SANTOS CASTRO", "y_santos3@unisimon.edu.co", 3.5], ["MARIA SOFIA", "SOTO SALAZAR", "m_soto7@unisimon.edu.co", 5.0], ["VALERY NICOLL", "TAPIAS RODRIGUEZ", "v_tapias@unisimon.edu.co", 5.0], ["ANGIE PAOLA", "TARAZONA PACHECO", "a_tarazona7@unisimon.edu.co", 4.0], ["ELIZABETH ANDREA", "VASQUEZ DIAZ", "e_vasquez1@unisimon.edu.co", 3.0], ["JOSE MANUEL", "VASQUEZ YEPES", "jose.vasquez1@unisimon.edu.co", 0.0], ["GISEL GABRIELA", "VELASCO MENDOZA", "g_velasco2@unisimon.edu.co", 3.0], ["HEIDY CAMILA", "VERA CASAS", "h_vera1@unisimon.edu.co", 3.5], ["CHARICK NAYELIT", "VILLAMIZAR BOCAREJO", "c_villamizar14@unisimon.edu.co", 5.0], ["SARA ZOHAR", "VILLAMIZAR CONTRERAS", "s_villamizar13@unisimon.edu.co", 3.0], ["BRENDA JULIETH", "VILLAMIZAR HERNANDEZ", "b_villamizar5@unisimon.edu.co", 5.0], ["YOFRAN DAVID", "VIVAS MARTINEZ", "y_vivas1@unisimon.edu.co", 4.5]];
 
@@ -239,28 +282,32 @@
     'DILAN','NICOLAS','ANDRES','JEROME','IOSUA','YOFRAN'
   ]);
   function inferSex(nombreCompleto){
-    const firstToken = nombreCompleto.trim().split(/\s+/)[0].toUpperCase();
+    const firstToken = (nombreCompleto || '').trim().split(/\s+/)[0].toUpperCase();
     return maleFirstNames.has(firstToken) ? 'Masculino' : 'Femenino';
   }
 
-  const students = rawData.map(row => ({
-    nombre: row[0],
-    apellidos: row[1],
-    email: row[2],
-    nota: row[3],
-    estado: row[3] >= 3 ? 'Aprobado' : 'No Aprobado',
-    sexo: inferSex(row[0])
-  }));
+  function buildStudents(rows){
+    return rows.map(row => ({
+      nombre: row[0],
+      apellidos: row[1],
+      email: row[2],
+      nota: row[3],
+      estado: row[3] >= 3 ? 'Aprobado' : 'No Aprobado',
+      sexo: inferSex(row[0])
+    }));
+  }
 
-  // ------------------------------------------------------------------
-  // 2. ESTADÍSTICAS
-  // ------------------------------------------------------------------
-  const total = students.length;
-  const aprobados = students.filter(s => s.estado === 'Aprobado').length;
-  const noAprobados = total - aprobados;
-  const tasa = (aprobados / total * 100);
-  const notas = students.map(s => s.nota);
-  const promedio = notas.reduce((a, b) => a + b, 0) / total;
+  // Estado global: lista de estudiantes actualmente analizada
+  let students = buildStudents(rawData);
+
+  // Referencias a las instancias de Chart.js para poder destruirlas al recargar datos
+  let histogramChartInstance = null;
+  let sexChartInstance = null;
+  let sexRateChartInstance = null;
+
+  // Estadísticas derivadas (se recalculan cada vez que cambian los datos)
+  let total, aprobados, noAprobados, tasa, notas, promedio, med, sd, enRiesgo;
+  let femeninos, masculinos, femAprob, mascAprob, femTasa, mascTasa;
 
   function median(arr){
     const s = [...arr].sort((a,b) => a - b);
@@ -271,12 +318,28 @@
     const variance = arr.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / arr.length;
     return Math.sqrt(variance);
   }
-  const med = median(notas);
-  const sd = stddev(notas, promedio);
-  const enRiesgo = students.filter(s => s.nota < 3.0).sort((a, b) => a.nota - b.nota);
+
+  function computeStats(){
+    total = students.length;
+    aprobados = students.filter(s => s.estado === 'Aprobado').length;
+    noAprobados = total - aprobados;
+    tasa = total ? (aprobados / total * 100) : 0;
+    notas = students.map(s => s.nota);
+    promedio = total ? notas.reduce((a, b) => a + b, 0) / total : 0;
+    med = total ? median(notas) : 0;
+    sd = total ? stddev(notas, promedio) : 0;
+    enRiesgo = students.filter(s => s.nota < 3.0).sort((a, b) => a.nota - b.nota);
+
+    femeninos = students.filter(s => s.sexo === 'Femenino');
+    masculinos = students.filter(s => s.sexo === 'Masculino');
+    femAprob = femeninos.filter(s => s.estado === 'Aprobado').length;
+    mascAprob = masculinos.filter(s => s.estado === 'Aprobado').length;
+    femTasa = femeninos.length ? (femAprob / femeninos.length * 100) : 0;
+    mascTasa = masculinos.length ? (mascAprob / masculinos.length * 100) : 0;
+  }
 
   // ------------------------------------------------------------------
-  // 3. KPIs
+  // 2. KPIs
   // ------------------------------------------------------------------
   function renderKPI(){
     document.getElementById('kpiContainer').innerHTML = `
@@ -290,7 +353,7 @@
   }
 
   // ------------------------------------------------------------------
-  // 4. HISTOGRAMA
+  // 3. HISTOGRAMA
   // ------------------------------------------------------------------
   function renderHistogram(){
     const ranges = [
@@ -306,7 +369,8 @@
     const counts = ranges.map(r => students.filter(s => s.nota >= r.min && s.nota <= r.max).length);
     document.getElementById('histCount').textContent = `${total} registros`;
 
-    new Chart(document.getElementById('histogramChart').getContext('2d'), {
+    if (histogramChartInstance) histogramChartInstance.destroy();
+    histogramChartInstance = new Chart(document.getElementById('histogramChart').getContext('2d'), {
       type: 'bar',
       data: {
         labels: ranges.map(r => r.label),
@@ -341,26 +405,20 @@
 
     document.getElementById('statMiniRow').innerHTML = `
       <div class="stat-mini"><div class="k">Desv. estándar</div><div class="v">${sd.toFixed(2)}</div></div>
-      <div class="stat-mini"><div class="k">Nota mínima</div><div class="v">${Math.min(...notas).toFixed(1)}</div></div>
-      <div class="stat-mini"><div class="k">Nota máxima</div><div class="v">${Math.max(...notas).toFixed(1)}</div></div>
+      <div class="stat-mini"><div class="k">Nota mínima</div><div class="v">${(notas.length ? Math.min(...notas) : 0).toFixed(1)}</div></div>
+      <div class="stat-mini"><div class="k">Nota máxima</div><div class="v">${(notas.length ? Math.max(...notas) : 0).toFixed(1)}</div></div>
     `;
   }
 
   // ------------------------------------------------------------------
-  // 4b. ANÁLISIS POR SEXO
+  // 4. ANÁLISIS POR SEXO
   // ------------------------------------------------------------------
-  const femeninos = students.filter(s => s.sexo === 'Femenino');
-  const masculinos = students.filter(s => s.sexo === 'Masculino');
-  const femAprob = femeninos.filter(s => s.estado === 'Aprobado').length;
-  const mascAprob = masculinos.filter(s => s.estado === 'Aprobado').length;
-  const femTasa = femeninos.length ? (femAprob / femeninos.length * 100) : 0;
-  const mascTasa = masculinos.length ? (mascAprob / masculinos.length * 100) : 0;
-
   function renderSexCharts(){
     document.getElementById('sexCount').textContent =
       `${femeninos.length} F · ${masculinos.length} M`;
 
-    new Chart(document.getElementById('sexChart').getContext('2d'), {
+    if (sexChartInstance) sexChartInstance.destroy();
+    sexChartInstance = new Chart(document.getElementById('sexChart').getContext('2d'), {
       type: 'doughnut',
       data: {
         labels: ['Femenino', 'Masculino'],
@@ -378,13 +436,13 @@
           legend: { position: 'bottom', labels: { boxWidth: 14, padding: 14 } },
           tooltip: {
             callbacks: {
-              label: ctx => `${ctx.label}: ${ctx.raw} (${(ctx.raw / total * 100).toFixed(1)}%)`
+              label: ctx => `${ctx.label}: ${ctx.raw} (${total ? (ctx.raw / total * 100).toFixed(1) : '0.0'}%)`
             }
           },
           datalabels: {
             color: '#ffffff',
             font: { weight: '700', size: 13 },
-            formatter: (v) => `${v}\n${(v / total * 100).toFixed(1)}%`,
+            formatter: (v) => `${v}\n${total ? (v / total * 100).toFixed(1) : '0.0'}%`,
             textAlign: 'center'
           }
         },
@@ -392,7 +450,8 @@
       }
     });
 
-    new Chart(document.getElementById('sexRateChart').getContext('2d'), {
+    if (sexRateChartInstance) sexRateChartInstance.destroy();
+    sexRateChartInstance = new Chart(document.getElementById('sexRateChart').getContext('2d'), {
       type: 'bar',
       data: {
         labels: ['Femenino', 'Masculino'],
@@ -422,8 +481,8 @@
             callbacks: {
               afterBody: ctx => {
                 const idx = ctx[0].dataIndex;
-                const tasa = idx === 0 ? femTasa : mascTasa;
-                return `Tasa de aprobación: ${tasa.toFixed(1)}%`;
+                const tasaSexo = idx === 0 ? femTasa : mascTasa;
+                return `Tasa de aprobación: ${tasaSexo.toFixed(1)}%`;
               }
             }
           },
@@ -445,8 +504,8 @@
   // 5. ESTUDIANTES EN RIESGO
   // ------------------------------------------------------------------
   function initials(nombre, apellidos){
-    const a = nombre.trim()[0] || '';
-    const b = apellidos.trim()[0] || '';
+    const a = (nombre || '').trim()[0] || '';
+    const b = (apellidos || '').trim()[0] || '';
     return (a + b).toUpperCase();
   }
 
@@ -521,13 +580,132 @@
   });
 
   // ------------------------------------------------------------------
-  // 7. INIT
+  // 7. RE-RENDERIZADO COMPLETO
   // ------------------------------------------------------------------
-  renderKPI();
-  renderHistogram();
-  renderSexCharts();
-  renderRisk();
-  renderFullTable();
+  function renderAll(){
+    computeStats();
+    renderKPI();
+    renderHistogram();
+    renderSexCharts();
+    renderRisk();
+    renderFullTable();
+  }
+
+  // ------------------------------------------------------------------
+  // 8. CARGA Y ANÁLISIS DE ARCHIVO .XLSX
+  // ------------------------------------------------------------------
+  function normalizeHeader(h){
+    return (h || '').toString().trim().toLowerCase();
+  }
+
+  // Busca, dentro de la fila de encabezados, la columna cuyo texto contenga alguno
+  // de los patrones dados (para tolerar variaciones de nombre entre planillas).
+  function findColumnIndex(headerRow, patterns){
+    for (let i = 0; i < headerRow.length; i++){
+      const h = normalizeHeader(headerRow[i]);
+      if (patterns.some(p => h.includes(p))) return i;
+    }
+    return -1;
+  }
+
+  function parseWorkbook(workbook){
+    // Prioriza una hoja llamada "Calificaciones"; si no existe, usa la primera
+    const sheetName = workbook.SheetNames.includes('Calificaciones')
+      ? 'Calificaciones'
+      : workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+    if (!rows.length) throw new Error('El archivo no contiene filas de datos.');
+
+    const headerRow = rows[0];
+    const idxNombre = findColumnIndex(headerRow, ['nombre']);
+    const idxApellidos = findColumnIndex(headerRow, ['apellido']);
+    const idxEmail = findColumnIndex(headerRow, ['correo', 'email']);
+    const idxNota = findColumnIndex(headerRow, ['total del curso', 'nota', 'calificación', 'calificacion']);
+
+    if (idxNombre === -1 || idxApellidos === -1 || idxNota === -1){
+      throw new Error('No se encontraron las columnas esperadas (Nombre, Apellido(s), Total del curso).');
+    }
+
+    const parsedRows = [];
+    for (let r = 1; r < rows.length; r++){
+      const row = rows[r];
+      if (!row || row[idxNombre] == null || row[idxNombre] === '') continue;
+
+      let nota = idxNota !== -1 ? row[idxNota] : 0;
+      if (typeof nota === 'string'){
+        nota = parseFloat(nota.replace(',', '.'));
+      }
+      if (typeof nota !== 'number' || isNaN(nota)) nota = 0;
+
+      parsedRows.push([
+        String(row[idxNombre]).trim(),
+        idxApellidos !== -1 ? String(row[idxApellidos] || '').trim() : '',
+        idxEmail !== -1 ? String(row[idxEmail] || '').trim() : '',
+        nota
+      ]);
+    }
+
+    if (!parsedRows.length) throw new Error('No se encontraron estudiantes válidos en el archivo.');
+    return parsedRows;
+  }
+
+  function setUploadStatus(message, type){
+    const el = document.getElementById('uploadStatus');
+    el.textContent = message;
+    el.className = 'upload-status' + (type ? ' ' + type : '');
+  }
+
+  function handleFile(file){
+    if (!file) return;
+    setUploadStatus('Analizando "' + file.name + '"...', '');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const parsedRows = parseWorkbook(workbook);
+        students = buildStudents(parsedRows);
+        renderAll();
+        setUploadStatus('✅ "' + file.name + '" analizado — ' + parsedRows.length + ' estudiantes', 'ok');
+      } catch (err){
+        console.error(err);
+        setUploadStatus('❌ ' + err.message, 'error');
+      }
+    };
+    reader.onerror = () => setUploadStatus('❌ No se pudo leer el archivo.', 'error');
+    reader.readAsArrayBuffer(file);
+  }
+
+  const fileInput = document.getElementById('fileInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadCard = document.getElementById('uploadCard');
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    uploadCard.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      uploadCard.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    uploadCard.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      uploadCard.classList.remove('dragover');
+    });
+  });
+  uploadCard.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  // ------------------------------------------------------------------
+  // 9. INIT (con los datos de ejemplo embebidos)
+  // ------------------------------------------------------------------
+  renderAll();
 </script>
 </body>
 </html>
